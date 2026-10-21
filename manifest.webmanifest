@@ -1,0 +1,11 @@
+{
+  "name": "집지킴 360",
+  "short_name": "집지킴",
+  "description": "빌라 AI 시세 · HUG 126% 안심진단 · 복비 0원 에스크로 직거래 · 원상복구 사진 금고",
+  "start_url": "./#/home",
+  "display": "standalone",
+  "background_color": "#F2F4F6",
+  "theme_color": "#2F6BFF",
+  "lang": "ko",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

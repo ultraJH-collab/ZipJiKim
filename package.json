@@ -1,0 +1,7 @@
+{
+  "name": "zipjikim-360",
+  "version": "1.1.0",
+  "private": true,
+  "description": "집지킴 360 — 안심 부동산 거래 라이프사이클 프로토타입 (모바일 PWA + 반응형 웹)",
+  "scripts": { "start": "node server.js" }
+}
