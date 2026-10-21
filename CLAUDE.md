@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 - Run: `node server.js` (or `npm start`) → http://localhost:5173. `.claude/launch.json` defines the same server as `zipjikim` for the preview browser.
-- Syntax check (there is no linter, bundler, or test suite): `node --check js/app.js js/engines.js js/data.js`
+- Syntax check (there is no linter, bundler, or test suite): `node --check js/app.js js/engines.js js/data.js js/sb.js`
 - Engines can be exercised headlessly in Node by stubbing `window`:
   `node -e "global.window=global; require('./js/data.js'); require('./js/engines.js'); const l=ZJ.LISTINGS[2]; console.log(ZJ.eng.diagnose(l))"`
 
@@ -25,6 +25,8 @@ Plain `<script>` tags (not ES modules, so `file://` also works) loaded in order 
   - Partial re-renders exist where focus/slider state must survive (`refreshHomeList`, `#hug-block`, `#manual-result`, `#fee-out`); everything else calls `render(true)`.
   - `state` is persisted per key via `store` (localStorage with `zj_` prefix, try/catch-wrapped). The contract wizard lives in `state.ct` (steps: 인증 → 조건 → 특약 → 서명·봉인 → 에스크로); the vault in `state.vault` (photos stored as downscaled JPEG data URLs plus hash of the original file).
   - Engine results are memoized per listing in `memo` via `diag(l)`.
+- `js/sb.js` — Supabase backend (project `zipjikim-360`, ref `mgeiqrxzuueygnemnwkq`, ap-northeast-2), loaded after `app.js` together with supabase-js 2.45.4 from jsDelivr. It reaches into the app through `ZJ.app` (exported at the end of `app.js`). `store.set` calls `ZJ.sb.push(key, value)`, which debounces writes to `favorites` / `user_state` / `contracts` / `vaults` / `vault_photos` + the private Storage bucket `vault-photos/{uid}/{phase}/{slot}`. Use `store.put` for local-only writes, e.g. when applying server data. On login, `pull()` merges server state into local, then uploads anything that exists only locally. Realtime on `contracts` / `vaults` / `vault_photos` triggers a re-pull; `_cid` filters out echoes of the tab's own writes. `listings` rows map back to the `ZJ.LISTINGS` shape (core columns + `detail` jsonb). `seals` is append-only, with server time enforced by a trigger. If the CDN or the server is unreachable, `ZJ.sb.enabled` is false or listings stay local, and the app works as the offline demo.
+- `supabase/migrations/*.sql` mirror what was applied to the project; `supabase/seed.sql` is generated from `js/data.js` (re-generate if listings change). After DDL, check Supabase security advisors.
 - `css/style.css` — design tokens on `:root`; mobile-first. At `min-width: 1024px` the bottom `.tabbar` is replaced by `#webnav` (rendered in `render()`), home becomes a list|map grid, and listing detail becomes two columns. Listing detail relies on `.d-side`/`.d-main` being `display: contents` with `order` on mobile and real grid columns on desktop — keep both when changing that markup. `@media print` styles the move-out report for PDF saving.
 - `sw.js` — network-first cache of the app shell; bump `CACHE` when adding shell files.
 
@@ -32,4 +34,5 @@ Plain `<script>` tags (not ES modules, so `file://` also works) loaded in order 
 
 - Money values in data/engines are 만원; convert with `E.fmtMan` (만원) or `E.fmtWon` (원) for display.
 - Legal/financial copy is demo text and should stay labeled as such (clauses need lawyer review; depreciation useful-life values need validation) — see PRD §4 and §7.
+- Deployed as a static site on Vercel via GitHub import (`vercel.json`, no build). The Supabase Auth Site URL / Redirect URLs must include the deployed origin for email links.
 - Pushes go to `origin` = https://github.com/ultraJH-collab/ZipJiKim (branch `main`).

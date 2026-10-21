@@ -513,3 +513,8 @@ h1, h2, h3, h4, p { margin: 0; }
   .paper { border: 0; padding: 0; }
   .report { padding: 0; }
 }
+
+/* 계정 카드 (Supabase 로그인) */
+.profile .grow { flex: 1; min-width: 0; }
+.profile .grow b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile .btn + .btn { margin-left: 6px; }

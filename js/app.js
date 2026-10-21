@@ -5,10 +5,11 @@
   const $ = (s, r = document) => r.querySelector(s);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  /* ---------- 저장소 (브라우저 저장 실패에도 동작) ---------- */
+  /* ---------- 저장소 (브라우저 저장 실패에도 동작 · 로그인 시 ZJ.sb가 클라우드로 동기화) ---------- */
   const store = {
     get(k, d) { try { const v = localStorage.getItem('zj_' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
-    set(k, v) { try { localStorage.setItem('zj_' + k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+    put(k, v) { try { localStorage.setItem('zj_' + k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+    set(k, v) { const ok = store.put(k, v); if (ZJ.sb && ZJ.sb.push) ZJ.sb.push(k, v); return ok; },
     clear() { try { Object.keys(localStorage).filter((k) => k.startsWith('zj_')).forEach((k) => localStorage.removeItem(k)); } catch (e) { /* noop */ } },
   };
 
@@ -615,7 +616,7 @@
         <div class="sealed">${ic('lock', 28)}<b>계약서 봉인 완료</b><p>${fmtDT(ct.sealedAt)}</p></div>
         ${contractDoc(l, ct)}
         <div class="sig-pair"><div><small>임대인</small><div class="sig-img landlord">${esc(l.owner)}</div></div><div><small>임차인</small><img class="sig-img" src="${ct.sig}" alt="임차인 서명"></div></div>
-        <div class="hash-box"><div><small>문서 해시 (SHA-256)</small><code>${ct.hash}</code></div><div><small>시점확인 토큰 (RFC 3161 TSA · 데모)</small><code>${ct.tsa}</code></div></div>
+        <div class="hash-box"><div><small>문서 해시 (SHA-256)</small><code>${ct.hash}</code></div>${ct.serverAt ? `<div><small>서버 수신 시각 (봉인 기록 · 수정 불가)</small><code>${fmtDT(ct.serverAt)} · ${ct.sealId}</code></div>` : ''}<div><small>시점확인 토큰 (RFC 3161 TSA · 데모)</small><code>${ct.tsa}</code></div></div>
         <button class="btn ghost block sm" data-act="verifyHash">${ic('hash', 16)}무결성 재검증</button>
       </section>
       <div class="ct-nav"><button class="btn primary block" data-act="ctNext">에스크로 가상계좌 발급</button></div>`;
@@ -701,11 +702,11 @@
     return head + ZJ.ZONES.map((z) => `<section class="sec">
       <div class="sec-h"><h3>${z.name}</h3><span class="muted sm">${z.items.filter((it) => v[phase][it.id]).length}/3</span></div>
       <div class="${phase === 'in' ? 'slots' : 'cmp-list'}">${z.items.map((it) => phase === 'in' ? slotHtml('in', it) : cmpRow(it)).join('')}</div>
-    </section>`).join('') + `<p class="fine pad">시각은 데모에서 기기 시각을 사용합니다. 실서비스는 서버 수신 시각 + RFC 3161 TSA 토큰으로 봉인하며, EXIF는 위·변조가 쉬워 증거 근거로 쓰지 않습니다.</p>`;
+    </section>`).join('') + `<p class="fine pad">${ZJ.sb && ZJ.sb.user ? '로그인 상태에서는 원본 사진이 비공개 클라우드 금고에 보관되고 서버 수신 시각이 기록됩니다.' : '비로그인 상태에서는 기기 시각을 사용합니다. 로그인하면 원본 사진과 서버 수신 시각이 클라우드에 기록됩니다.'} 실서비스는 서버 수신 시각 + RFC 3161 TSA 토큰으로 봉인하며, EXIF는 위·변조가 쉬워 증거 근거로 쓰지 않습니다.</p>`;
   }
   function slotHtml(phase, it) {
     const s = state.vault[phase][it.id];
-    if (s) return `<div class="slot filled"><img src="${s.img}" alt="${it.name}"><div class="slot-meta"><b>${it.name}</b><small>${fmtDT(s.ts)}</small><code>${shortHash(s.hash)}</code></div><button class="slot-x" data-act="delPhoto" data-phase="${phase}" data-arg="${it.id}" aria-label="삭제">${ic('x', 14)}</button></div>`;
+    if (s) return `<div class="slot filled"><img src="${s.img}" alt="${it.name}"><div class="slot-meta"><b>${it.name}</b><small>${s.srv ? '서버 ' + fmtDT(s.srv) : fmtDT(s.ts)}</small><code>${shortHash(s.hash)}</code></div><button class="slot-x" data-act="delPhoto" data-phase="${phase}" data-arg="${it.id}" aria-label="삭제">${ic('x', 14)}</button></div>`;
     return `<label class="slot"><input type="file" accept="image/*" capture="environment" data-phase="${phase}" data-slot="${it.id}" hidden>${ic('camera', 26)}<b>${it.name}</b><small>탭하여 촬영</small></label>`;
   }
   function cmpRow(it) {
@@ -807,7 +808,7 @@
     const fee = E.brokerFee(+state.fee.deposit || 0, +state.fee.rent || 0);
     return `${topbar('MY')}
     <div class="page">
-      <section class="profile"><div class="avatar">${ic('user', 26)}</div><div><b>김민수 님</b><small>데모 계정 · 신림동 투룸 전세 탐색 중</small></div></section>
+      ${accountCard()}
       <section class="sec stats">
         <button data-go="#/contract"><b>${ct ? CT_STEPS[ct.step] : '-'}</b><small>진행 중 계약</small></button>
         <button data-act="goVault"><b>${Object.keys(v.in).length}/12</b><small>사진 금고</small></button>
@@ -841,6 +842,15 @@
       </section>
       <p class="fine pad center">집지킴 360 프로토타입 · 모든 매물·등기·시세는 가상 데이터입니다.<br>공공 API(건축물대장·공시가격·실거래가)·인터넷등기소·본인인증·은행 에스크로는 목업으로 동작합니다.</p>
     </div>`;
+  }
+  function accountCard() {
+    const sb = ZJ.sb;
+    if (!sb || !sb.enabled) return `<section class="profile"><div class="avatar">${ic('user', 26)}</div><div><b>김민수 님</b><small>데모 계정 · 이 기기에만 저장 (클라우드 연결 안 됨)</small></div></section>`;
+    if (!sb.user) return `<section class="profile"><div class="avatar">${ic('user', 26)}</div><div class="grow"><b>로그인하고 클라우드에 저장</b><small>지금은 이 기기에만 저장돼요</small></div><button class="btn primary sm" data-act="login">로그인</button></section>`;
+    const st = { syncing: '동기화 중…', ok: '클라우드 동기화됨', error: '동기화 실패 — 다시 시도', off: '' }[sb.status] || '';
+    return `<section class="profile"><div class="avatar">${ic('user', 26)}</div><div class="grow"><b>${esc(sb.user.email || '회원')}</b>
+      <small class="${sb.status === 'error' ? 'c-danger' : ''}" ${sb.status === 'error' ? `title="${esc(sb.error)}"` : ''}>${st}</small></div>
+      ${sb.status === 'error' ? `<button class="btn line sm" data-act="sbRetry">재시도</button>` : ''}<button class="btn line sm" data-act="logout">로그아웃</button></section>`;
   }
   function feeOut(fee) {
     const save = fee.withVat - 39000;
@@ -1011,7 +1021,9 @@
       ct.sealedAt = new Date().toISOString();
       ct.hash = await E.sha256(docPayload(ct));
       ct.tsa = 'TST-' + (await E.sha256(ct.hash + ct.sealedAt)).slice(0, 32).toUpperCase();
-      saveCt(); render(); toast('계약서가 봉인되었어요', 'ok');
+      const srv = ZJ.sb && ZJ.sb.seal ? await ZJ.sb.seal('contract', ct.listingId, ct.hash) : null;
+      if (srv) { ct.serverAt = srv.server_time; ct.sealId = srv.id; }
+      saveCt(); render(); toast(srv ? '계약서가 봉인되었어요 · 서버 시각 기록' : '계약서가 봉인되었어요', 'ok');
     },
     async verifyHash() {
       const h = await E.sha256(docPayload(state.ct));
@@ -1049,9 +1061,11 @@
     },
     print() { window.print(); },
     resetAll() {
-      modal(`<h3>데모 데이터 초기화</h3><p class="muted">이 기기에 저장된 계약 진행, 사진 금고, 찜, 구독 상태를 모두 삭제합니다.</p><div class="btn-row wide"><button class="btn line" data-act="closeModal">취소</button><button class="btn danger" data-act="doReset">초기화</button></div>`);
+      const cloud = ZJ.sb && ZJ.sb.user;
+      modal(`<h3>데모 데이터 초기화</h3><p class="muted">이 기기에 저장된 계약 진행, 사진 금고, 찜, 구독 상태를 모두 삭제합니다.${cloud ? ' 로그인한 계정의 클라우드 데이터와 사진 원본도 함께 삭제됩니다(봉인 기록은 수정·삭제 불가로 남습니다).' : ''}</p><div class="btn-row wide"><button class="btn line" data-act="closeModal">취소</button><button class="btn danger" data-act="doReset">초기화</button></div>`);
     },
-    doReset() {
+    async doReset() {
+      if (ZJ.sb && ZJ.sb.wipe) await ZJ.sb.wipe();
       store.clear();
       Object.assign(state, { favs: [], unlocked: [], freeUsed: false, care: false, ct: null, vault: defaultVault(), vaultTab: 'in', selected: null });
       closeModal(); render(); toast('초기화했어요');
@@ -1114,6 +1128,7 @@
       if (!/^image\//.test(file.type)) { toast('이미지 파일만 등록할 수 있어요', 'warn'); return; }
       try {
         const rec = await processFile(file);
+        if (ZJ.sb && ZJ.sb.attach) ZJ.sb.attach(el.dataset.phase, el.dataset.slot, file);
         state.vault[el.dataset.phase][el.dataset.slot] = rec; saveVault(); render(true);
         toast('봉인 완료 · ' + rec.hash.slice(0, 10) + '…', 'ok');
       } catch (err) { toast('사진을 처리하지 못했어요', 'warn'); }
@@ -1131,6 +1146,9 @@
   window.addEventListener('hashchange', () => { closeModal(); render(); });
   window.addEventListener('resize', () => { if (parse().page === 'home') initMap(); });
   render();
+
+  // sb.js(Supabase 연동)가 쓰는 앱 내부 접근점
+  ZJ.app = { state, store, render, parse, toast, modal, closeModal, actions, inputs, defaultVault, resetMemo() { Object.keys(memo).forEach((k) => delete memo[k]); } };
 
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
