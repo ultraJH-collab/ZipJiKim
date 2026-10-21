@@ -26,9 +26,11 @@ PRD.md              Supabase 백엔드 연동 PRD v1.2
 ```
 
 ## 배포 (Vercel)
+실서비스: **https://zip-ji-kim.vercel.app** (Vercel 프로젝트 `zip-ji-kim`, GitHub `main` 연동)
+
 빌드 없이 저장소 루트를 정적 사이트로 배포합니다. vercel.com → Add New → Project → `ultraJH-collab/ZipJiKim` Import → Framework Preset **Other**, Build Command 비움 → Deploy. 이후 `main`에 push할 때마다 자동으로 배포됩니다.
 
-배포 URL이 정해지면 Supabase 대시보드 → Authentication → URL Configuration에서 **Site URL**과 **Redirect URLs**에 그 주소를 넣어야 합니다. 그래야 가입 인증 메일과 로그인 링크가 앱으로 돌아옵니다.
+Supabase Authentication → URL Configuration 설정: Site URL은 `https://zip-ji-kim.vercel.app`, Redirect URLs는 `https://zip-ji-kim.vercel.app/**`, `http://localhost:5173/**`입니다. 도메인이 바뀌면 여기도 함께 바꿔야 가입 인증 메일과 로그인 링크가 앱으로 돌아옵니다.
 
 ## 데모 시나리오
 | 매물 | 확인 포인트 |
